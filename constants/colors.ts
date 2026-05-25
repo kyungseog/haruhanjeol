@@ -1,0 +1,16 @@
+export const Colors = {
+  brand: '#F5A623',
+  brandDark: '#E8941A',
+  brandLight: '#FFF3DC',
+  brandGold: '#C8860A',
+  bg: '#FAFAF8',
+  surface: '#FFFFFF',
+  textPrimary: '#1A1A1A',
+  textSecondary: '#6B6B6B',
+  textTertiary: '#ADADAD',
+  border: '#EFEFEF',
+  success: '#4CAF50',
+  kakao: '#FEE500',
+  kakaoText: 'rgba(0,0,0,0.85)',
+  googleBorder: '#DADCE0',
+} as const;
