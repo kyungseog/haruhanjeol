@@ -36,6 +36,11 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Claude Code / AI agent generated files
+.agents/
+.claude/skills/
+skills-lock.json
+
 # generated native folders
 /ios
 /android
