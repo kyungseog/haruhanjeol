@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
   StyleSheet, Alert, ActivityIndicator, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, runOnJS } from 'react-native-reanimated';
 import { useLocalSearchParams, router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAudioRecorder, AudioModule, RecordingPresets } from 'expo-audio';
@@ -320,7 +322,7 @@ export default function WriteScreen() {
           <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
             {mode === 'rub' && (
               <View style={styles.hintBanner}>
-                <Text style={styles.hintText}>👆 각 줄을 탭해서 완료하세요</Text>
+                <Text style={styles.hintText}>✋ 각 줄 위를 손가락으로 밀어서 완료하세요</Text>
               </View>
             )}
 
@@ -332,25 +334,18 @@ export default function WriteScreen() {
                 {mode === 'rub' ? (
                   <View style={styles.rubLines}>
                     {lines.length > 0 ? lines.map((line, i) => (
-                      <TouchableOpacity
+                      <RubLine
                         key={i}
-                        onPress={() => handleRubLine(i)}
-                        style={[styles.rubLine, rubbedLines.has(i) && styles.rubLineDone]}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.rubLineText, rubbedLines.has(i) && styles.rubLineTextDone]}>
-                          {line.trim()}
-                        </Text>
-                      </TouchableOpacity>
+                        text={line}
+                        isDone={rubbedLines.has(i)}
+                        onComplete={() => handleRubLine(i)}
+                      />
                     )) : (
-                      <TouchableOpacity
-                        onPress={() => handleRubLine(0)}
-                        style={[styles.rubLine, rubbedLines.has(0) && styles.rubLineDone]}
-                      >
-                        <Text style={[styles.rubLineText, rubbedLines.has(0) && styles.rubLineTextDone]}>
-                          {currentVerse.text}
-                        </Text>
-                      </TouchableOpacity>
+                      <RubLine
+                        text={currentVerse.text}
+                        isDone={rubbedLines.has(0)}
+                        onComplete={() => handleRubLine(0)}
+                      />
                     )}
                   </View>
                 ) : (
@@ -531,6 +526,75 @@ export default function WriteScreen() {
   );
 }
 
+// ── 문지르기 줄 컴포넌트 ─────────────────────────────────────
+function RubLine({ text, isDone, onComplete }: {
+  text: string;
+  isDone: boolean;
+  onComplete: () => void;
+}) {
+  const fillPct   = useSharedValue(isDone ? 100 : 0);
+  const minX      = useSharedValue(0);
+  const maxX      = useSharedValue(0);
+  const lineW     = useSharedValue(1);
+  const startMsRef = useRef(0);
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
+  useEffect(() => {
+    if (isDone) fillPct.value = withSpring(100);
+  }, [isDone]);
+
+  const recordStart = useCallback(() => { startMsRef.current = Date.now(); }, []);
+
+  const evaluate = useCallback((coverage: number) => {
+    const duration = Date.now() - startMsRef.current;
+    if (coverage >= 0.85 && duration >= 600) {
+      fillPct.value = withSpring(100);
+      onCompleteRef.current();
+    } else {
+      fillPct.value = withSpring(0);
+    }
+  }, [fillPct]);
+
+  const gesture = useMemo(() => Gesture.Pan()
+    .onBegin((e) => {
+      'worklet';
+      minX.value = e.x;
+      maxX.value = e.x;
+      runOnJS(recordStart)();
+    })
+    .onUpdate((e) => {
+      'worklet';
+      if (e.x < minX.value) minX.value = e.x;
+      if (e.x > maxX.value) maxX.value = e.x;
+      fillPct.value = Math.min((maxX.value - minX.value) / lineW.value * 100, 100);
+    })
+    .onFinalize(() => {
+      'worklet';
+      const coverage = (maxX.value - minX.value) / lineW.value;
+      runOnJS(evaluate)(coverage);
+    }),
+  []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${fillPct.value}%` as any,
+  }));
+
+  return (
+    <GestureDetector gesture={gesture}>
+      <View
+        onLayout={(e) => { lineW.value = e.nativeEvent.layout.width - 24; }}
+        style={[styles.rubLine, isDone && styles.rubLineDone]}
+      >
+        <Animated.View style={[styles.rubFill, fillStyle]} />
+        <Text style={[styles.rubLineText, isDone && styles.rubLineTextDone]}>
+          {text.trim()}
+        </Text>
+      </View>
+    </GestureDetector>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
@@ -565,11 +629,17 @@ const styles = StyleSheet.create({
   verseText: { fontSize: 17, color: Colors.textPrimary, lineHeight: 30, fontFamily: 'Pretendard-Regular' },
   rubLines: { gap: 8 },
   rubLine: {
-    padding: 12, borderRadius: 10,
+    padding: 12, borderRadius: 10, overflow: 'hidden',
     backgroundColor: 'rgba(245,166,35,0.05)',
     borderWidth: 1, borderColor: 'transparent',
+    position: 'relative',
   },
   rubLineDone: { backgroundColor: 'rgba(245,166,35,0.18)', borderColor: 'rgba(245,166,35,0.3)' },
+  rubFill: {
+    position: 'absolute', top: 0, left: 0, bottom: 0,
+    backgroundColor: 'rgba(245,166,35,0.22)',
+    borderRadius: 10,
+  },
   rubLineText: { fontSize: 16, color: Colors.textPrimary, lineHeight: 26, fontFamily: 'Pretendard-Regular' },
   rubLineTextDone: { color: Colors.brandGold, fontFamily: 'Pretendard-Medium' },
   rubProgress: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
