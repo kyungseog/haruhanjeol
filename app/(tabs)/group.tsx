@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  ActivityIndicator, TextInput, Alert,
+  ActivityIndicator, TextInput, Alert, RefreshControl,
   Modal, Share, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -182,7 +182,8 @@ function GroupHomeView({
   onGroupDeleted: () => void;
   onJoin: () => void;
   onInvite: () => void;
-}) {
+})
+ {
   const handleReaction = async (toUserId: string) => {
     try {
       await sendReaction(group.id, toUserId, '👍');
@@ -227,7 +228,12 @@ function GroupHomeView({
   };
 
   return (
-    <ScrollView showsVerticalScrollIndicator={false}>
+    <ScrollView
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={loading} onRefresh={onReload} tintColor={Colors.brand} />
+      }
+    >
       {/* 헤더 */}
       <View style={styles.groupHeader}>
         <View>
@@ -246,12 +252,7 @@ function GroupHomeView({
         </View>
       </View>
 
-      {loading ? (
-        <View style={[styles.center, { paddingVertical: 40 }]}>
-          <ActivityIndicator color={Colors.brand} />
-        </View>
-      ) : (
-        <>
+      <>
           {/* 멤버 진척도 */}
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>멤버 진척도</Text>
@@ -335,8 +336,7 @@ function GroupHomeView({
             })}
           </View>
           <View style={{ height: 80 }} />
-        </>
-      )}
+      </>
     </ScrollView>
   );
 }

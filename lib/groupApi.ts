@@ -82,6 +82,21 @@ export async function createGroup(name: string, description?: string): Promise<s
   return data as string; // group_id
 }
 
+// 딥링크 토큰으로 참여
+export async function joinByToken(token: string): Promise<Group> {
+  const { data: groupId, error } = await supabase
+    .rpc('join_by_token', { p_token: token });
+  if (error) throw new Error(error.message);
+
+  const { data: group, error: gErr } = await supabase
+    .from('groups')
+    .select('*')
+    .eq('id', groupId)
+    .single();
+  if (gErr || !group) throw new Error('모임 정보를 불러오지 못했습니다.');
+  return group;
+}
+
 // 코드로 참여
 export async function joinByCode(code: string): Promise<Group> {
   const { data: group, error: gErr } = await supabase

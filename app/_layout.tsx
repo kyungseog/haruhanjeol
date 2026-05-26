@@ -48,6 +48,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="bible/[bookId]" />
         <Stack.Screen name="bible/write" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="join/[token]" />
       </Stack>
     </GestureHandlerRootView>
     </LangProvider>
