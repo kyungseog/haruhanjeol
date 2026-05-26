@@ -19,6 +19,7 @@ import { useChapterProgress } from '@/hooks/useProgress';
 import { Toast } from '@/components/ui/Toast';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLang } from '@/lib/langContext';
+import { notifyVerseComplete } from '@/lib/notificationService';
 
 export default function WriteScreen() {
   const { bookId, chapter: chapterStr, verse: verseStr } =
@@ -117,6 +118,14 @@ export default function WriteScreen() {
       ]);
       sessionCompleted.current.add(currentVerse.verse);
       await reloadProgress();
+      const nickname = user.user_metadata?.nickname ?? user.email?.split('@')[0] ?? '익명';
+      notifyVerseComplete({
+        userId: user.id,
+        nickname,
+        bookName: lang === 'en' ? (book?.nameEn ?? bookId) : (book?.name ?? bookId),
+        chapter,
+        verse: currentVerse.verse,
+      }).catch(() => {});
 
       // 장 전체 완료 여부 판단
       const allDoneInSession =

@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMyGroups, useGroupDetail } from '@/hooks/useGroup';
 import { Group, createGroup, joinByCode, createInviteLink, sendReaction, deleteGroup, kickMember } from '@/lib/groupApi';
 import { getBookById } from '@/constants/bible';
+import { notifyReaction } from '@/lib/notificationService';
 
 // ── 피드 항목 시간 포맷 ──────────────────────────────────────
 function timeAgo(iso: string) {
@@ -90,6 +91,7 @@ export default function GroupScreen() {
           feed={feed}
           loading={detailLoading}
           currentUserId={user?.id ?? ''}
+          currentUserNickname={user?.user_metadata?.nickname ?? user?.email?.split('@')[0] ?? '익명'}
           isCreator={activeGroup.created_by === user?.id}
           onReload={reloadDetail}
           onGroupDeleted={async () => {
@@ -169,7 +171,7 @@ function EmptyGroupView({ onCreate, onJoin }: { onCreate: () => void; onJoin: ()
 
 // ────────────────────────────────────────────────────────────
 function GroupHomeView({
-  group, members, feed, loading, currentUserId, isCreator,
+  group, members, feed, loading, currentUserId, currentUserNickname, isCreator,
   onReload, onGroupDeleted, onJoin, onInvite,
 }: {
   group: Group;
@@ -177,16 +179,17 @@ function GroupHomeView({
   feed: any[];
   loading: boolean;
   currentUserId: string;
+  currentUserNickname: string;
   isCreator: boolean;
   onReload: () => void;
   onGroupDeleted: () => void;
   onJoin: () => void;
   onInvite: () => void;
-})
- {
+}) {
   const handleReaction = async (toUserId: string) => {
     try {
       await sendReaction(group.id, toUserId, '👍');
+      notifyReaction({ toUserId, fromNickname: currentUserNickname }).catch(() => {});
       if (Platform.OS === 'web') window.alert('응원을 보냈어요! 👍');
       else Alert.alert('', '응원을 보냈어요! 👍');
     } catch (e: any) {

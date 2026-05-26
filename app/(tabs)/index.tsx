@@ -38,8 +38,12 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </View>
-          <MaterialIcons name="notifications" size={24} color={Colors.textSecondary} />
-          <MaterialIcons name="account-circle" size={26} color={Colors.textSecondary} />
+          <TouchableOpacity onPress={() => router.push('/(tabs)/group')}>
+            <MaterialIcons name="notifications" size={24} color={Colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/settings')}>
+            <MaterialIcons name="account-circle" size={26} color={Colors.textSecondary} />
+          </TouchableOpacity>
         </View>
       </View>
 

@@ -4,10 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/hooks/useAuth';
+import { useLang } from '@/lib/langContext';
 
 export default function SettingsScreen() {
   const { user, signOut } = useAuth();
-  const [defaultLang, setDefaultLang] = useState<'ko' | 'en'>('ko');
+  const { lang, setLang } = useLang();
   const [notifyGroup, setNotifyGroup] = useState(true);
   const [notifyCheer, setNotifyCheer] = useState(true);
 
@@ -38,16 +39,21 @@ export default function SettingsScreen() {
         {/* 기본 언어 */}
         <Text style={styles.groupLabel}>기본 언어</Text>
         <View style={styles.row}>
-          <Text style={styles.rowLabel}>한글 (개역개정)</Text>
-          <TouchableOpacity onPress={() => setDefaultLang('ko')}>
-            <Text style={styles.radioIcon}>{defaultLang === 'ko' ? '🔵' : '⚪️'}</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>English (NIV)</Text>
-          <TouchableOpacity onPress={() => setDefaultLang('en')}>
-            <Text style={styles.radioIcon}>{defaultLang === 'en' ? '🔵' : '⚪️'}</Text>
-          </TouchableOpacity>
+          <Text style={styles.rowLabel}>성경 언어</Text>
+          <View style={styles.segControl}>
+            {([['ko', '한글'], ['en', 'ENG']] as const).map(([val, label]) => (
+              <TouchableOpacity
+                key={val}
+                style={[styles.segOption, lang === val && styles.segOptionActive]}
+                onPress={() => setLang(val)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.segText, lang === val && styles.segTextActive]}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* 알림 */}
@@ -118,7 +124,33 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
   rowLabel: { fontSize: 15, color: Colors.textPrimary },
-  radioIcon: { fontSize: 18 },
+  segControl: {
+    flexDirection: 'row',
+    backgroundColor: Colors.border,
+    borderRadius: 20,
+    padding: 3,
+    gap: 2,
+  },
+  segOption: {
+    paddingHorizontal: 18,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  segOptionActive: {
+    backgroundColor: Colors.brand,
+    shadowColor: Colors.brand,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  segText: {
+    fontSize: 13,
+    fontFamily: 'Pretendard-SemiBold',
+    color: Colors.textTertiary,
+  },
+  segTextActive: {
+    color: 'white',
+  },
   progressCard: {
     backgroundColor: Colors.surface, marginHorizontal: 16, borderRadius: 16,
     padding: 16, borderWidth: 1, borderColor: Colors.border,

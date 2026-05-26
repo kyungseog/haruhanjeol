@@ -4,8 +4,10 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Notifications from 'expo-notifications';
 import { useAuth } from '@/hooks/useAuth';
 import { LangProvider } from '@/lib/langContext';
+import { registerForPushNotifications } from '@/lib/notificationService';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -20,6 +22,24 @@ export default function RootLayout() {
   const { session, loading } = useAuth();
   const segments = useSegments();
   const splashHidden = useRef(false);
+
+  // 로그인 후 푸시 토큰 등록
+  useEffect(() => {
+    if (session?.user?.id) {
+      registerForPushNotifications(session.user.id);
+    }
+  }, [session?.user?.id]);
+
+  // 알림 탭 → 모임 화면으로 이동
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data as any;
+      if (data?.groupId) {
+        router.push('/(tabs)/group');
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (!fontsLoaded || loading) return;
