@@ -24,8 +24,14 @@ export async function registerForPushNotifications(userId: string): Promise<void
   }
   if (finalStatus !== 'granted') return;
 
-  const tokenData = await Notifications.getExpoPushTokenAsync();
-  const token = tokenData.data;
+  let token: string;
+  try {
+    const tokenData = await Notifications.getExpoPushTokenAsync();
+    token = tokenData.data;
+  } catch {
+    // 시뮬레이터, Expo Go, projectId 미설정 환경에서는 토큰 발급 불가
+    return;
+  }
 
   await supabase.from('push_tokens').upsert(
     { user_id: userId, token, platform: Platform.OS, updated_at: new Date().toISOString() },
