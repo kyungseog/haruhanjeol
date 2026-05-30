@@ -14,9 +14,14 @@ const TRANSLATION = {
   en: 'KJV',
 } as const;
 
-// Strong's 번호 태그 제거 (<S>1234</S>)
+// Strong's 번호 태그(<S>1234</S>), <sup>...</sup> 등 HTML 태그 제거
 function cleanText(text: string): string {
-  return text.replace(/<S>\d+<\/S>/g, '').replace(/\s+/g, ' ').trim();
+  return text
+    .replace(/<S>\d+<\/S>/g, '')
+    .replace(/<sup[^>]*>.*?<\/sup>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30일

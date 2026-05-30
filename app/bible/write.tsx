@@ -20,6 +20,8 @@ import { Toast } from '@/components/ui/Toast';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLang } from '@/lib/langContext';
 import { notifyVerseComplete } from '@/lib/notificationService';
+import { cancelTodayReminderIfGoalMet } from '@/lib/goalService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function WriteScreen() {
   const { bookId, chapter: chapterStr, verse: verseStr } =
@@ -126,6 +128,11 @@ export default function WriteScreen() {
         chapter,
         verse: currentVerse.verse,
       }).catch(() => {});
+
+      AsyncStorage.getItem('goal_daily_verses').then(raw => {
+        const goal = raw ? Number(raw) : null;
+        cancelTodayReminderIfGoalMet(user.id, goal).catch(() => {});
+      });
 
       // 장 전체 완료 여부 판단
       const allDoneInSession =

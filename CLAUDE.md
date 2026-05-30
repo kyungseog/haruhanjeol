@@ -55,7 +55,7 @@ docs/
 
 ---
 
-## 개발 현황 (2026-05-26)
+## 개발 현황 (2026-05-30)
 
 ### ✅ 완료
 - 로그인/회원가입 (이메일)
@@ -83,10 +83,20 @@ docs/
   - 절 완료 시 모임 멤버 알림 (`write.tsx`)
   - 응원 버튼 클릭 시 알림 (`group.tsx`)
   - 알림 탭 수신 → 모임화면 이동 (`_layout.tsx`)
+- 영어 성경(KJV) HTML 태그 제거 — `<sup>`, `<S>` 등 (`bibleService.ts` `cleanText`)
+- 하루 목표량 설정 + 쓰기 알림:
+  - `users` 테이블에 목표/알림 컬럼 추가 (migration 007)
+  - `lib/goalService.ts` — 목표 저장/조회, 오늘 완료 절 수 조회, 로컬 반복 알림 등록/취소
+  - 설정 화면 "하루 목표량" 섹션: 절 수 입력(완성까지 남은 기간 표시) / 완성 날짜 선택(하루 필요 절 수 표시)
+  - 설정 화면 "쓰기 알림" 섹션: 목표 미달성 알림 토글 + 시각 설정 (시/분 버튼)
+  - 절 완료 시 오늘 목표 달성 여부 확인 후 알림 자동 취소 (`write.tsx`)
+  - iOS: DatePicker 바텀시트 모달 (취소/확인 버튼) / Android: 시스템 다이얼로그
+  - 설정 화면 진척도 실데이터 연결 (`useAllProgress` 훅)
 
 ### ⚠️ 제한 사항 (실제 기기 필요)
 - 푸시 토큰 실제 등록: Expo Go + 시뮬레이터에서는 불가. `eas init` 후 개발 빌드 필요
 - 실제 푸시 수신: 실제 iOS/Android 기기 필요
+- 로컬 알림(목표 미달성 알림): 시뮬레이터에서 스케줄 등록은 되나 실제 수신은 실기기 필요
 
 ### 🔄 미구현
 - OCR (사진 → Naver Clova) — API 키 필요
@@ -123,6 +133,7 @@ lib/storageService.ts        # Storage 업로드/서명 URL (verse-media 버킷)
 lib/langContext.tsx          # 전역 언어 상태 (LangProvider, useLang)
 lib/groupApi.ts              # 모임 API (생성/참여/피드/반응/초대링크)
 lib/notificationService.ts   # 푸시 알림 (토큰 등록, 절완료 알림, 응원 알림)
+lib/goalService.ts           # 하루 목표량 (저장/조회, 오늘 완료 수, 로컬 알림 스케줄)
 
 hooks/useAuth.ts             # 인증 상태 훅
 hooks/useProgress.ts         # 진척도 훅 (책별·장별·전체)

@@ -1,0 +1,6 @@
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS daily_goal_verses INT     DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS goal_target_date  DATE    DEFAULT NULL,
+  ADD COLUMN IF NOT EXISTS reminder_enabled  BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS reminder_hour     INT     DEFAULT 21,
+  ADD COLUMN IF NOT EXISTS reminder_minute   INT     DEFAULT 0;
