@@ -19,6 +19,7 @@ import {
   calcVersesPerDay,
   formatDaysToFinish,
 } from '@/lib/goalService';
+import { getMyGroups, getGroupGoalSummary } from '@/lib/groupApi';
 
 const TOTAL_VERSES = 31103;
 
@@ -40,12 +41,28 @@ export default function SettingsScreen() {
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  // 모임 목표
+  const [myGroupGoal, setMyGroupGoal] = useState<{ groupName: string; assignedVerses: number } | null>(null);
+
   // 알림 설정
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderHour, setReminderHour] = useState(21);
   const [reminderMinute, setReminderMinute] = useState(0);
 
   const completedVerses = Math.round(totalProgress * TOTAL_VERSES);
+
+  useEffect(() => {
+    if (!user) return;
+    getMyGroups(user.id).then(async (groups) => {
+      const sharedGroup = groups.find(g => g.group_type === 'shared');
+      if (!sharedGroup) return;
+      const summary = await getGroupGoalSummary(sharedGroup.id);
+      const mine = summary.members.find(m => m.userId === user.id);
+      if (mine?.assignedVerses) {
+        setMyGroupGoal({ groupName: sharedGroup.name, assignedVerses: mine.assignedVerses });
+      }
+    }).catch(() => {});
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -70,6 +87,15 @@ export default function SettingsScreen() {
       { text: '취소', style: 'cancel' },
       { text: '로그아웃', style: 'destructive', onPress: () => signOut() },
     ]);
+  };
+
+  const handleApplyGroupGoal = async () => {
+    if (!user || !myGroupGoal) return;
+    await saveGoalSettings(user.id, { dailyGoalVerses: myGroupGoal.assignedVerses, goalTargetDate: null });
+    setDailyGoalVerses(myGroupGoal.assignedVerses);
+    setGoalMode('verses');
+    setHasGoal(true);
+    Alert.alert('목표 설정 완료', `하루 목표가 ${myGroupGoal.assignedVerses}절로 설정되었어요.`);
   };
 
   const handleGoalModeChange = (mode: 'verses' | 'date') => {
@@ -192,6 +218,23 @@ export default function SettingsScreen() {
             ))}
           </View>
         </View>
+
+        {/* 모임 목표 */}
+        {myGroupGoal && (
+          <>
+            <Text style={styles.groupLabel}>모임 목표</Text>
+            <View style={styles.groupGoalCard}>
+              <View style={styles.groupGoalRow}>
+                <Text style={styles.groupGoalName}>🤝 {myGroupGoal.groupName}</Text>
+                <Text style={styles.groupGoalVerses}>{myGroupGoal.assignedVerses}절/일</Text>
+              </View>
+              <TouchableOpacity style={styles.applyBtn} onPress={handleApplyGroupGoal} activeOpacity={0.8}>
+                <MaterialIcons name="arrow-downward" size={16} color={Colors.brand} />
+                <Text style={styles.applyBtnText}>내 목표로 설정하기</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
         {/* 하루 목표량 */}
         <Text style={styles.groupLabel}>하루 목표량</Text>
@@ -477,6 +520,22 @@ const styles = StyleSheet.create({
   timeStepBtn: { padding: 4 },
   timeValue: { fontSize: 20, fontFamily: 'Pretendard-Bold', color: Colors.textPrimary },
   timeColon: { fontSize: 22, fontFamily: 'Pretendard-Bold', color: Colors.textTertiary, marginBottom: 4 },
+
+  // 모임 목표 카드
+  groupGoalCard: {
+    backgroundColor: Colors.surface, marginHorizontal: 16, borderRadius: 16,
+    borderWidth: 1, borderColor: Colors.border, padding: 16,
+  },
+  groupGoalRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12,
+  },
+  groupGoalName: { fontSize: 15, fontFamily: 'Pretendard-SemiBold', color: Colors.textPrimary },
+  groupGoalVerses: { fontSize: 16, fontFamily: 'Pretendard-Bold', color: Colors.brand },
+  applyBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: Colors.brandLight, borderRadius: 10, paddingVertical: 10,
+  },
+  applyBtnText: { fontSize: 14, fontFamily: 'Pretendard-SemiBold', color: Colors.brand },
 
   // 진척도 카드
   progressCard: {

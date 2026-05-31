@@ -260,6 +260,7 @@ export default function WriteScreen() {
         Alert.alert('권한 필요', '마이크 접근 권한이 필요합니다.');
         return;
       }
+      await AudioModule.setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await audioRecorder.prepareToRecordAsync();
       audioRecorder.record();
       setIsRecording(true);
@@ -279,6 +280,7 @@ export default function WriteScreen() {
     setSaving(true);
     try {
       await audioRecorder.stop();
+      await AudioModule.setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
       const uri = audioRecorder.uri;
       if (!uri) throw new Error('No recording URI');
       const { storagePath, fileType } = await uploadVerseMedia({

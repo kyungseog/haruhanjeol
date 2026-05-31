@@ -55,7 +55,7 @@ docs/
 
 ---
 
-## 개발 현황 (2026-05-30)
+## 개발 현황 (2026-05-31)
 
 ### ✅ 완료
 - 로그인/회원가입 (이메일)
@@ -66,6 +66,7 @@ docs/
 - 문지르기 제스처 고도화 (Reanimated 드래그 커버리지 판정, 85% + 0.6초)
 - 사진 촬영 모드 (카메라 → Storage 업로드)
 - 음성 녹음 모드 (expo-audio → Storage 업로드)
+  - iOS AudioSession 설정 (`AudioModule.setAudioModeAsync({ allowsRecording: true })`) 포함
 - 절 완료 토스트 + 장 완료 팝업
 - 작성 이력 저장 (`verse_records` 테이블 — 타입/경로/텍스트 누적)
 - 전역 한글/영어 언어 전환 (LangContext, 모든 화면에 적용)
@@ -92,6 +93,18 @@ docs/
   - 절 완료 시 오늘 목표 달성 여부 확인 후 알림 자동 취소 (`write.tsx`)
   - iOS: DatePicker 바텀시트 모달 (취소/확인 버튼) / Android: 시스템 다이얼로그
   - 설정 화면 진척도 실데이터 연결 (`useAllProgress` 훅)
+- 모임 유형 + 공동 목표 분담 기능:
+  - **모임 유형**: 생성 시 독려형(각자 목표형) / 분담형(함께 완성형) 선택 (`group_type` 컬럼)
+  - DB 마이그레이션 (migration 007_group_goal): `groups` 테이블에 `group_type`, `group_daily_goal`, `group_target_date`, `split_mode`, `goal_set_at` 추가; `group_members`에 `assigned_verses` 추가; RLS 정책(방장만 수정)
+  - `lib/groupApi.ts`: `setGroupGoal`, `getGroupGoalSummary`, `getGroupTodayCompleted`, `getGroupMembersTodayProgress` 추가
+  - `hooks/useGroup.ts`: `useGroupDetail`에 `goalSummary`, `todayTotal`, `membersTodayProgress` 반환 (분담형일 때만 조회)
+  - 모임 화면 (`group.tsx`):
+    - `GroupGoalSection`: 방장 목표 설정 폼 (절 수/날짜 모드, 균등/개별 분담, DateTimePicker)
+    - 방장 요약 뷰 / 일반 멤버 뷰 분기
+    - 오늘 모임 달성 프로그레스 바 (분담형만 표시)
+    - 멤버 진척도: 분담형에서 "오늘 N/M절" + 바 + "총 누적 작성 N절" 표시
+    - 헤더 "🤝 함께 완성형" 뱃지
+  - 설정 화면 (`settings.tsx`): 분담형 모임의 내 할당량이 있을 때 "모임 목표" 섹션 표시 + "내 목표로 설정하기" 버튼
 
 ### ⚠️ 제한 사항 (실제 기기 필요)
 - 푸시 토큰 실제 등록: Expo Go + 시뮬레이터에서는 불가. `eas init` 후 개발 빌드 필요
@@ -131,7 +144,7 @@ lib/bibleService.ts          # 성경 데이터 (bolls.life + 캐싱)
 lib/progressService.ts       # 진척도 저장/조회 (verse_progress, verse_records)
 lib/storageService.ts        # Storage 업로드/서명 URL (verse-media 버킷)
 lib/langContext.tsx          # 전역 언어 상태 (LangProvider, useLang)
-lib/groupApi.ts              # 모임 API (생성/참여/피드/반응/초대링크)
+lib/groupApi.ts              # 모임 API (생성/참여/피드/반응/초대링크/목표설정/진척도)
 lib/notificationService.ts   # 푸시 알림 (토큰 등록, 절완료 알림, 응원 알림)
 lib/goalService.ts           # 하루 목표량 (저장/조회, 오늘 완료 수, 로컬 알림 스케줄)
 
