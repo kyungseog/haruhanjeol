@@ -21,6 +21,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useLang } from '@/lib/langContext';
 import { notifyVerseComplete } from '@/lib/notificationService';
 import { cancelTodayReminderIfGoalMet } from '@/lib/goalService';
+import { recognizeVerse, OcrResult } from '@/lib/ocrService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function WriteScreen() {
@@ -44,6 +45,8 @@ export default function WriteScreen() {
   const [toastMsg, setToastMsg] = useState('');
   const [saving, setSaving] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [ocrStatus, setOcrStatus] = useState<'idle' | 'recognizing' | 'confirm' | 'reject'>('idle');
+  const [ocrResult, setOcrResult] = useState<OcrResult | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -204,6 +207,28 @@ export default function WriteScreen() {
     if (result.canceled || !result.assets[0]) return;
     const uri = result.assets[0].uri;
     setPhotoUri(uri);
+    setOcrStatus('recognizing');
+    setOcrResult(null);
+    try {
+      const ocr = await recognizeVerse(uri, currentVerse.text);
+      setOcrResult(ocr);
+      if (ocr.verdict === 'pass') {
+        setOcrStatus('idle');
+        await savePhotoWithProgress(uri);
+      } else if (ocr.verdict === 'confirm') {
+        setOcrStatus('confirm');
+      } else {
+        setOcrStatus('reject');
+      }
+    } catch (e) {
+      // OCR API 오류 시 사용자에게 선택 제공
+      setOcrStatus('confirm');
+      setOcrResult({ text: '', score: 0, verdict: 'confirm' });
+    }
+  };
+
+  const savePhotoWithProgress = async (uri: string) => {
+    if (!user || !currentVerse || !bookId) return;
     setSaving(true);
     try {
       const { storagePath, fileType } = await uploadVerseMedia({
@@ -215,6 +240,17 @@ export default function WriteScreen() {
       Alert.alert('업로드 실패', '사진 저장에 실패했습니다. 다시 시도해주세요.');
       setSaving(false);
     }
+  };
+
+  const handleOcrConfirm = async () => {
+    setOcrStatus('idle');
+    if (photoUri) await savePhotoWithProgress(photoUri);
+  };
+
+  const handleOcrRetry = () => {
+    setOcrStatus('idle');
+    setOcrResult(null);
+    setPhotoUri(null);
   };
 
   const startRecording = async () => {
@@ -434,19 +470,77 @@ export default function WriteScreen() {
                 ) : (
                   <Text style={styles.comingSoonIcon}>📸</Text>
                 )}
-                <Text style={styles.comingSoonText}>
-                  {photoUri ? '사진이 저장되었어요' : '손으로 쓴 말씀을 촬영하세요'}
-                </Text>
-                <TouchableOpacity
-                  style={[styles.cameraBtn, saving && styles.cameraBtnDisabled]}
-                  onPress={handleTakePhoto}
-                  disabled={saving}
-                >
-                  {saving
-                    ? <ActivityIndicator size="small" color="white" />
-                    : <Text style={styles.cameraBtnText}>{photoUri ? '다시 찍기' : '카메라 열기'}</Text>
-                  }
-                </TouchableOpacity>
+
+                {/* 인식 중 */}
+                {ocrStatus === 'recognizing' && (
+                  <View style={styles.ocrStatusRow}>
+                    <ActivityIndicator size="small" color={Colors.brand} />
+                    <Text style={styles.ocrStatusText}>말씀을 인식하는 중...</Text>
+                  </View>
+                )}
+
+                {/* 확인 요청 (75~88%) */}
+                {ocrStatus === 'confirm' && ocrResult && (
+                  <View style={styles.ocrConfirmBox}>
+                    <Text style={styles.ocrConfirmLabel}>
+                      {ocrResult.text
+                        ? `인식된 텍스트 (유사도 ${Math.round(ocrResult.score * 100)}%)`
+                        : 'OCR 인식에 실패했습니다'}
+                    </Text>
+                    {!!ocrResult.text && (
+                      <Text style={styles.ocrConfirmText} numberOfLines={3}>{ocrResult.text}</Text>
+                    )}
+                    <Text style={styles.ocrConfirmQuestion}>이 내용이 맞나요?</Text>
+                    <View style={styles.ocrConfirmBtns}>
+                      <TouchableOpacity style={styles.ocrBtnSecondary} onPress={handleOcrRetry}>
+                        <Text style={styles.ocrBtnSecondaryText}>다시 찍기</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.ocrBtnPrimary, saving && styles.cameraBtnDisabled]}
+                        onPress={handleOcrConfirm}
+                        disabled={saving}
+                      >
+                        {saving
+                          ? <ActivityIndicator size="small" color="white" />
+                          : <Text style={styles.ocrBtnPrimaryText}>맞아요 ✓</Text>}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {/* 인식 실패 (<75%) */}
+                {ocrStatus === 'reject' && (
+                  <View style={styles.ocrConfirmBox}>
+                    <Text style={styles.ocrRejectIcon}>📝</Text>
+                    <Text style={styles.ocrRejectText}>
+                      말씀과 다른 내용이에요{'\n'}좀 더 또렷하게 다시 찍어보세요
+                    </Text>
+                    {ocrResult?.text ? (
+                      <Text style={styles.ocrConfirmText} numberOfLines={2}>{ocrResult.text}</Text>
+                    ) : null}
+                    <TouchableOpacity style={styles.cameraBtn} onPress={handleOcrRetry}>
+                      <Text style={styles.cameraBtnText}>다시 찍기</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* 기본 상태 */}
+                {ocrStatus === 'idle' && (
+                  <>
+                    <Text style={styles.comingSoonText}>
+                      {photoUri ? '사진이 저장되었어요' : '손으로 쓴 말씀을 촬영하세요'}
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.cameraBtn, saving && styles.cameraBtnDisabled]}
+                      onPress={handleTakePhoto}
+                      disabled={saving}
+                    >
+                      {saving
+                        ? <ActivityIndicator size="small" color="white" />
+                        : <Text style={styles.cameraBtnText}>{photoUri ? '다시 찍기' : '카메라 열기'}</Text>}
+                    </TouchableOpacity>
+                  </>
+                )}
               </View>
             )}
 
@@ -707,6 +801,29 @@ const styles = StyleSheet.create({
   cameraBtnDisabled: { opacity: 0.6 },
   cameraBtnText: { fontSize: 14, fontFamily: 'Pretendard-Bold', color: 'white' },
   recordingTimer: { fontSize: 28, fontFamily: 'Pretendard-Bold', color: '#E53935', letterSpacing: 2 },
+  ocrStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  ocrStatusText: { fontSize: 13, color: Colors.textSecondary, fontFamily: 'Pretendard-Regular' },
+  ocrConfirmBox: { width: '100%', gap: 8, marginTop: 4 },
+  ocrConfirmLabel: { fontSize: 11, color: Colors.textTertiary, fontFamily: 'Pretendard-Medium' },
+  ocrConfirmText: {
+    backgroundColor: Colors.bg, borderRadius: 10, padding: 10,
+    fontSize: 13, color: Colors.textPrimary, lineHeight: 20,
+    fontFamily: 'Pretendard-Regular', borderWidth: 1, borderColor: Colors.border,
+  },
+  ocrConfirmQuestion: { fontSize: 14, color: Colors.textPrimary, fontFamily: 'Pretendard-SemiBold', marginTop: 2 },
+  ocrConfirmBtns: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  ocrBtnSecondary: {
+    flex: 1, height: 44, borderRadius: 12, borderWidth: 1.5,
+    borderColor: Colors.border, alignItems: 'center', justifyContent: 'center',
+  },
+  ocrBtnSecondaryText: { fontSize: 14, fontFamily: 'Pretendard-SemiBold', color: Colors.textPrimary },
+  ocrBtnPrimary: {
+    flex: 1, height: 44, borderRadius: 12,
+    backgroundColor: Colors.brand, alignItems: 'center', justifyContent: 'center',
+  },
+  ocrBtnPrimaryText: { fontSize: 14, fontFamily: 'Pretendard-Bold', color: 'white' },
+  ocrRejectIcon: { fontSize: 32, textAlign: 'center' },
+  ocrRejectText: { fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20, fontFamily: 'Pretendard-Regular' },
   modeTabs: {
     flexDirection: 'row', backgroundColor: Colors.surface,
     borderTopWidth: 1, borderTopColor: Colors.border,
